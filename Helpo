@@ -1,48 +1,71 @@
-static Future<bool> deleteCreations({required String image}) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? creations = prefs.getString('creations');
+https://drive.google.com/file/d/1d8OUOQv8qDYkxw-5z5GVSVDC2unIUXV4/view
 
-  // If creations is null, return false because there’s nothing to delete
-  if (creations == null || creations.isEmpty) {
-    return false;
+
+https://widgetwisdom.com/adding-admob-ads-to-a-flutter-app/
+
+
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+import 'introduction_screen1.dart';
+
+class VideoSplashScreen extends StatefulWidget {
+  @override
+  _VideoSplashScreenState createState() => _VideoSplashScreenState();
+}
+
+class _VideoSplashScreenState extends State<VideoSplashScreen> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = VideoPlayerController.asset('assets/splash/splash_bg_video2.mp4')
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+
+        // Add listener after initialized
+        _controller.addListener(() {
+          final bool isEnded = _controller.value.position >= _controller.value.duration;
+
+          if (isEnded) {
+            _navigateToNextScreen();
+          }
+        });
+      });
   }
 
-  // Print initial state for debugging
-  print(':::: Deleting image: $image ::::');
-  print(':::: Current creations: $creations ::::');
-
-  // Find the index of the image to remove
-  int ix = creations.indexOf(image);
-  if (ix == -1) {
-    // Image not found, nothing to delete
-    return false;
-  }
-
-  int lIx = ix + image.length;
-
-  // Handle the case where the image is at the start of the string
-  if (ix == 0) {
-    if (lIx == creations.length) {
-      // If it's the only item, clear the entire string
-      creations = '';
-    } else {
-      // If there's more content after the image, remove it and shift the string
-      creations = creations.substring(lIx + 1);
+  void _navigateToNextScreen() {
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => IntroductionScreen1()),
+      );
     }
-  } 
-  // Handle the case where the image is in the middle or end of the string
-  else if (lIx == creations.length) {
-    creations = creations.substring(0, ix - 1); // Remove image from the end
-  } else {
-    // Image is somewhere in the middle, so we need to remove it from both sides
-    creations = creations.substring(0, ix) + creations.substring(lIx + 2);
   }
 
-  // Print the updated creations for debugging
-  print(':::: Updated creations: $creations ::::');
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _controller.value.isInitialized
+          ? SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover, // makes it full screen (fills and crops)
+          child: SizedBox(
+            width: _controller.value.size.width,
+            height: _controller.value.size.height,
+            child: VideoPlayer(_controller),
+          ),
+        ),
+      )
+          : Center(child: CircularProgressIndicator()),
+    );
+  }
 
-  // Save the updated creations string back to SharedPreferences
-  prefs.setString('creations', creations);
-
-  return true;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 }
