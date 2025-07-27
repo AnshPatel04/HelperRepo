@@ -4,68 +4,86 @@ https://drive.google.com/file/d/1d8OUOQv8qDYkxw-5z5GVSVDC2unIUXV4/view
 https://widgetwisdom.com/adding-admob-ads-to-a-flutter-app/
 
 
-import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+// 1 Sec
+void showInterstitialAdWithLoader(BuildContext context) async {
+  if (interstitialAd != null) {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
 
-import 'introduction_screen1.dart';
+    // Wait for at least 1 second
+    await Future.delayed(const Duration(seconds: 1));
 
-class VideoSplashScreen extends StatefulWidget {
-  @override
-  _VideoSplashScreenState createState() => _VideoSplashScreenState();
-}
+    // Close loading dialog
+    Navigator.of(context).pop();
 
-class _VideoSplashScreenState extends State<VideoSplashScreen> {
-  late VideoPlayerController _controller;
+    // Show the ad
+    interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        loadInterstitialAd(); // Reload after dismiss
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        loadInterstitialAd();
+      },
+    );
 
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = VideoPlayerController.asset('assets/splash/splash_bg_video2.mp4')
-      ..initialize().then((_) {
-        setState(() {});
-        _controller.play();
-
-        // Add listener after initialized
-        _controller.addListener(() {
-          final bool isEnded = _controller.value.position >= _controller.value.duration;
-
-          if (isEnded) {
-            _navigateToNextScreen();
-          }
-        });
-      });
-  }
-
-  void _navigateToNextScreen() {
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => IntroductionScreen1()),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _controller.value.isInitialized
-          ? SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover, // makes it full screen (fills and crops)
-          child: SizedBox(
-            width: _controller.value.size.width,
-            height: _controller.value.size.height,
-            child: VideoPlayer(_controller),
-          ),
-        ),
-      )
-          : Center(child: CircularProgressIndicator()),
+    interstitialAd!.show();
+    interstitialAd = null;
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ad is not ready yet. Please try again.')),
     );
   }
+}
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+///------
+
+// till ads
+
+void showInterstitialAdWithLoader(BuildContext context) async {
+  if (interstitialAd != null) {
+    // Show the loader dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    bool loaderClosed = false;
+
+    interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        if (!loaderClosed) {
+          Navigator.of(context).pop(); // Close the loader
+          loaderClosed = true;
+        }
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        loadInterstitialAd();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        if (!loaderClosed) {
+          Navigator.of(context).pop(); // Close the loader
+          loaderClosed = true;
+        }
+        loadInterstitialAd();
+      },
+    );
+
+    // Ensure loader is shown for at least 1 second
+    await Future.delayed(const Duration(seconds: 1));
+    interstitialAd!.show();
+    interstitialAd = null;
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ad is not ready yet. Please try again.')),
+    );
   }
 }
