@@ -4,86 +4,195 @@ https://drive.google.com/file/d/1d8OUOQv8qDYkxw-5z5GVSVDC2unIUXV4/view
 https://widgetwisdom.com/adding-admob-ads-to-a-flutter-app/
 
 
-// 1 Sec
-void showInterstitialAdWithLoader(BuildContext context) async {
-  if (interstitialAd != null) {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+///----------services/firestore_service.dart
 
-    // Wait for at least 1 second
-    await Future.delayed(const Duration(seconds: 1));
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:advertising_id/advertising_id.dart';
 
-    // Close loading dialog
-    Navigator.of(context).pop();
+class FirestoreService {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-    // Show the ad
-    interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        loadInterstitialAd(); // Reload after dismiss
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        ad.dispose();
-        loadInterstitialAd();
-      },
-    );
+  static Future<String> getAdvertisingId() async {
+    return await AdvertisingId.id(true) ?? '';
+  }
 
-    interstitialAd!.show();
-    interstitialAd = null;
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ad is not ready yet. Please try again.')),
-    );
+  static Future<void> createUserIfNew() async {
+    String adId = await getAdvertisingId();
+    DocumentReference userRef = _firestore.collection('users').doc(adId);
+
+    DocumentSnapshot doc = await userRef.get();
+    if (!doc.exists) {
+      await userRef.set({
+        'advertising_id': adId,
+        'credits': 100,
+      });
+      print('✅ New user created with 100 credits.');
+    } else {
+      print('✅ User already exists.');
+    }
   }
 }
 
-///------
 
-// till ads
+///----------services/ad_service.dart
+import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-void showInterstitialAdWithLoader(BuildContext context) async {
-  if (interstitialAd != null) {
-    // Show the loader dialog
+class AdService {
+  static InterstitialAd? _interstitialAd;
+
+  static void loadInterstitialAd(String adUnitId) {
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) => _interstitialAd = ad,
+        onAdFailedToLoad: (error) => print('❌ Interstitial Ad Load Failed: $error'),
+      ),
+    );
+  }
+
+  static Future<void> showAdWithLoader(BuildContext context) async {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    bool loaderClosed = false;
-
-    interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (ad) {
-        if (!loaderClosed) {
-          Navigator.of(context).pop(); // Close the loader
-          loaderClosed = true;
-        }
-      },
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        loadInterstitialAd();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        ad.dispose();
-        if (!loaderClosed) {
-          Navigator.of(context).pop(); // Close the loader
-          loaderClosed = true;
-        }
-        loadInterstitialAd();
-      },
-    );
-
-    // Ensure loader is shown for at least 1 second
     await Future.delayed(const Duration(seconds: 1));
-    interstitialAd!.show();
-    interstitialAd = null;
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ad is not ready yet. Please try again.')),
+    if (_interstitialAd != null) {
+      _interstitialAd!.show();
+      _interstitialAd = null;
+      await Future.delayed(const Duration(seconds: 1));
+      Navigator.of(context).pop(); // remove loader
+    } else {
+      Navigator.of(context).pop(); // remove loader
+    }
+  }
+}
+
+
+///-------screens/splash_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../DAL/FirebaseRemoteConfigService.dart';
+import 'introduction_screen1.dart';
+import 'home_screen.dart';
+
+class SplashVideoScreen extends StatefulWidget {
+  @override
+  _SplashVideoScreenState createState() => _SplashVideoScreenState();
+}
+
+class _SplashVideoScreenState extends State<SplashVideoScreen> {
+  late VideoPlayerController _controller;
+  InterstitialAd? interstitialAd;
+  bool isAdShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInterstitialAd();
+
+    _controller = VideoPlayerController.asset('assets/splash/splash_bg_video2.mp4')
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+        _controller.addListener(() async {
+          if (!isAdShown && _controller.value.position >= _controller.value.duration) {
+            isAdShown = true;
+            _showInterstitialAdThenNavigate();
+          }
+        });
+      });
+  }
+
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: fireAccess['interPreLoad'].toString(), // OR use test ID
+      request: AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          interstitialAd = ad;
+        },
+        onAdFailedToLoad: (error) {
+          print('Ad failed: $error');
+          interstitialAd = null;
+        },
+      ),
     );
+  }
+
+  Future<bool> isFirstTime() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isNotFirstTime') ?? false;
+  }
+
+  Future<void> _showInterstitialAdThenNavigate() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    await Future.delayed(Duration(milliseconds: 500)); // Just smooth loader feel
+
+    if (interstitialAd != null) {
+      interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) async {
+          Navigator.of(context).pop(); // Close loader
+          _navigateNext();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          Navigator.of(context).pop(); // Close loader
+          _navigateNext();
+        },
+      );
+
+      interstitialAd!.show();
+    } else {
+      Navigator.of(context).pop(); // Close loader
+      _navigateNext();
+    }
+  }
+
+  Future<void> _navigateNext() async {
+    bool page = await isFirstTime();
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => page ? HomeScreen() : IntroductionScreen1(),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _controller.value.isInitialized
+          ? SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+            )
+          : const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    interstitialAd?.dispose();
+    super.dispose();
   }
 }
