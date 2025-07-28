@@ -26,9 +26,9 @@ class FirestoreService {
         'advertising_id': adId,
         'credits': 100,
       });
-      print('✅ New user created with 100 credits.');
+      print(':::: New user created with 100 credits. ::::');
     } else {
-      print('✅ User already exists.');
+      print(':::: User already exists. ::::');
     }
   }
 }
@@ -47,7 +47,7 @@ class AdService {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) => _interstitialAd = ad,
-        onAdFailedToLoad: (error) => print('❌ Interstitial Ad Load Failed: $error'),
+        onAdFailedToLoad: (error) => print(':::: Interstitial Ad Load Failed: $error ::::'),
       ),
     );
   }
