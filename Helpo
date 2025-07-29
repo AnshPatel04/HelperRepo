@@ -33,6 +33,45 @@ class FirestoreService {
   }
 }
 
+///-- user 2
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:advertising_id/advertising_id.dart';
+
+class FirestoreService {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Get advertising ID
+  static Future<String> getAdvertisingId() async {
+    return await AdvertisingId.id(true) ?? '';
+  }
+
+  // Create user with default credits if not exists
+  static Future<void> createUserIfNew() async {
+    String adId = await getAdvertisingId();
+    DocumentReference userRef = _firestore.collection('users').doc(adId);
+
+    DocumentSnapshot doc = await userRef.get();
+
+    if (!doc.exists) {
+      await userRef.set({
+        'credits': 100,
+        'createdAt': FieldValue.serverTimestamp(), // optional
+      });
+      print('✅ New user created with 100 credits.');
+    } else {
+      print('✅ User already exists.');
+    }
+  }
+
+  // Optional: Get current user credits
+  static Future<int?> getUserCredits() async {
+    String adId = await getAdvertisingId();
+    DocumentSnapshot doc = await _firestore.collection('users').doc(adId).get();
+    return doc.exists ? (doc['credits'] as int?) : null;
+  }
+}
+
+
 
 ///----------services/ad_service.dart
 import 'package:flutter/material.dart';
