@@ -1,0 +1,388 @@
+<key>GADApplicationIdentifier</key>
+<string>ca-app-pub-3940256099942544~1458002511</string>
+
+<meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
+
+
+
+IOS Image save Premission
+///---
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>This app needs access to save images to your photo library.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs access to your photo library.</string>
+
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+
+Future<void> requestStoragePermission() async {
+  if (Platform.isIOS) {
+    final status = await Permission.photosAddOnly.request(); // or photos
+
+    if (status.isGranted) {
+      await _getHttp(); // your save function
+    } else {
+      _toastInfo('Photo permission denied');
+    }
+  } else if (Platform.isAndroid) {
+    // Android logic from earlier
+  }
+}
+
+///---
+// android
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28"/>
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+Future<void> requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      PermissionStatus status;
+
+      if (Platform.operatingSystemVersion.contains("13")) {
+        // Android 13+ (API 33+)
+        status = await Permission.photos.request();
+      } else {
+        // Android 12 and below
+        status = await Permission.storage.request();
+      }
+
+      if (status.isGranted) {
+        await _getHttp();
+      } else {
+        _toastInfo("Storage permission denied");
+      }
+    } else {
+      // iOS or others
+      await _getHttp();
+    }
+  }
+
+  Future<void> _getHttp() async {
+    try {
+      final response = await Dio().get(
+        widget.imgUrl,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      String picturesPath = "network_image.jpg";
+
+      final result = await SaverGallery.saveImage(
+        Uint8List.fromList(response.data),
+        quality: 60,
+        fileName: picturesPath,
+        androidRelativePath: "Pictures/NetworkImages",
+        skipIfExists: false,
+      );
+
+      _toastInfo('Saved');
+    } catch (e) {
+      _toastInfo('Error: $e');
+    }
+  }
+
+
+///---- Ads
+
+<key>NSUserTrackingUsageDescription</key>
+<string>This identifier will be used to deliver personalized ads to you.</string>
+
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+
+///-To show form of show ads
+import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Google Mobile Ads SDK
+  await MobileAds.instance.initialize();
+
+  // Show consent form before loading ads
+  await showConsentFormIfRequired();
+
+  runApp(MyApp());
+}
+
+Future<void> showConsentFormIfRequired() async {
+  final consentInfo = ConsentInformation.instance;
+  await consentInfo.requestConsentInfoUpdate();
+
+  if (await consentInfo.isConsentFormAvailable()) {
+    final form = await ConsentForm.load();
+    await form.show();
+  }
+}
+
+
+///-- base on status 
+final status = ConsentInformation.instance.consentStatus;
+
+if (status == ConsentStatus.obtained) {
+  // Safe to show ads
+  MobileAds.instance.initialize();
+  // loadBannerAd(), loadInterstitialAd(), etc.
+} else {
+  // Do NOT load ads — user denied or it's not required
+  print("User denied consent. Skipping ad loading.");
+}
+
+
+///-- ex
+
+import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:user_messaging_platform/user_messaging_platform.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await ConsentInformation.instance.requestConsentInfoUpdate();
+
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => MaterialApp(home: ConsentCheckScreen());
+}
+
+class ConsentCheckScreen extends StatefulWidget {
+  @override
+  State<ConsentCheckScreen> createState() => _ConsentCheckScreenState();
+}
+
+class _ConsentCheckScreenState extends State<ConsentCheckScreen> {
+  bool _consentGiven = false;
+  BannerAd? _bannerAd;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConsentAndLoadAd();
+  }
+
+  Future<void> _checkConsentAndLoadAd() async {
+    final consentStatus = ConsentInformation.instance.consentStatus;
+
+    if (consentStatus == ConsentStatus.required) {
+      // Show consent form
+      bool formAvailable = await ConsentForm.loadAndShowConsentFormIfRequired();
+      if (!formAvailable) {
+        print('Consent form not available.');
+        return;
+      }
+    }
+
+    if (ConsentInformation.instance.canRequestAds) {
+      // Consent obtained – now load ads
+      await MobileAds.instance.initialize();
+      _loadBannerAd();
+      setState(() {
+        _consentGiven = true;
+      });
+    } else {
+      print('User denied consent – do not show ads.');
+    }
+  }
+
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      size: AdSize.banner,
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // Test ad unit
+      listener: BannerAdListener(
+        onAdLoaded: (_) => print('Ad loaded'),
+        onAdFailedToLoad: (ad, error) {
+          print('Ad failed to load: $error');
+          ad.dispose();
+        },
+      ),
+      request: AdRequest(),
+    )..load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Ad Consent Demo')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_consentGiven ? "Ads are allowed" : "Consent not given"),
+            SizedBox(height: 20),
+            if (_bannerAd != null)
+              Container(
+                height: _bannerAd!.size.height.toDouble(),
+                width: _bannerAd!.size.width.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+///--- App open ads
+
+///--app_open_ad_manager.dart
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+class AppOpenAdManager {
+  AppOpenAd? _appOpenAd;
+  bool _isShowingAd = false;
+
+  // Test ad unit (replace with your own)
+  final String adUnitId = 'ca-app-pub-3940256099942544/3419835294';
+
+  void loadAd() {
+    AppOpenAd.load(
+      adUnitId: adUnitId,
+      request: AdRequest(),
+      orientation: AppOpenAd.orientationPortrait,
+      adLoadCallback: AppOpenAdLoadCallback(
+        onAdLoaded: (ad) {
+          _appOpenAd = ad;
+          print('AppOpenAd loaded');
+        },
+        onAdFailedToLoad: (error) {
+          print('AppOpenAd failed to load: $error');
+          _appOpenAd = null;
+        },
+      ),
+    );
+  }
+
+  void showAdIfAvailable() {
+    if (_isShowingAd) return;
+
+    if (_appOpenAd == null) {
+      print('Tried to show ad before it was available.');
+      loadAd();
+      return;
+    }
+
+    _appOpenAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        _isShowingAd = true;
+        print('Ad showed');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        _isShowingAd = false;
+        _appOpenAd = null;
+        loadAd(); // Preload next
+        print('Ad dismissed');
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        _isShowingAd = false;
+        _appOpenAd = null;
+        loadAd();
+        print('Ad failed to show: $error');
+      },
+    );
+
+    _appOpenAd!.show();
+  }
+}
+
+
+///----NativeAd
+
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+NativeAd? _nativeAd;
+bool _isNativeAdLoaded = false;
+
+void loadNativeAd() {
+  _nativeAd = NativeAd(
+    adUnitId: 'ca-app-pub-3940256099942544/2247696110', // Test ID
+    factoryId: 'listTile', // Defined in Android/iOS native code
+    listener: NativeAdListener(
+      onAdLoaded: (ad) {
+        print('NativeAd loaded');
+        _isNativeAdLoaded = true;
+      },
+      onAdFailedToLoad: (ad, error) {
+        print('NativeAd failed to load: $error');
+        ad.dispose();
+      },
+      onAdOpened: (ad) => print('NativeAd opened'),
+      onAdClosed: (ad) => print('NativeAd closed'),
+      onAdImpression: (ad) => print('NativeAd impression'),
+      onAdClicked: (ad) => print('NativeAd clicked'),
+    ),
+    request: const AdRequest(),
+  );
+
+  _nativeAd!.load();
+}
+
+Widget build(BuildContext context) {
+  return _isNativeAdLoaded
+      ? Container(
+          height: 330,
+          child: AdWidget(ad: _nativeAd!),
+        )
+      : SizedBox.shrink();
+}
+
+
+///-- InterstitialAd
+
+InterstitialAd? _interstitialAd;
+bool _isInterstitialAdReady = false;
+
+void _loadInterstitialAd() {
+  InterstitialAd.load(
+    adUnitId: 'ca-app-pub-3940256099942544/1033173712', // Test ID
+    request: const AdRequest(),
+    adLoadCallback: InterstitialAdLoadCallback(
+      onAdLoaded: (InterstitialAd ad) {
+        _interstitialAd = ad;
+        _isInterstitialAdReady = true;
+
+        _interstitialAd!.setImmersiveMode(true);
+
+        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+          onAdShowedFullScreenContent: (InterstitialAd ad) =>
+              print('Ad showed.'),
+          onAdDismissedFullScreenContent: (InterstitialAd ad) {
+            print('Ad dismissed.');
+            ad.dispose();
+            _loadInterstitialAd(); // Reload after close
+          },
+          onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+            print('Failed to show: $error');
+            ad.dispose();
+            _loadInterstitialAd();
+          },
+          onAdImpression: (InterstitialAd ad) =>
+              print('Ad impression.'),
+          onAdClicked: (InterstitialAd ad) =>
+              print('Ad clicked.'),
+        );
+      },
+      onAdFailedToLoad: (LoadAdError error) {
+        print('InterstitialAd failed to load: $error');
+        _isInterstitialAdReady = false;
+      },
+    ),
+  );
+}
+
+void _showInterstitialAd() {
+  if (_isInterstitialAdReady && _interstitialAd != null) {
+    _interstitialAd!.show();
+    _isInterstitialAdReady = false;
+  } else {
+    print('Interstitial ad not ready.');
+  }
+}

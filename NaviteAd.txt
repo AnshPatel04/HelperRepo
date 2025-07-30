@@ -1,0 +1,19 @@
+getOnlineIds()
+
+
+Firebase Remote Config 
+      ↓
+getOnlineIds() in ads_splash_utils.dart
+      ↓
+AdsVariable & SharedPreferences
+      ↓
+setupFbAdsId() → MethodChannel ("nativeChannel")
+      ↓
+Android MainActivity.kt → on "setToast"
+      ↓
+Registers Native Ad Factories (Full / Big / Small)
+      ↓
+Flutter calls NativeAd with factoryId → Android renders native ad layout
+
+
+setupFbAdsId() // channel call
