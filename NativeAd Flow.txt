@@ -9,3 +9,10 @@ Flutter NativeAd Widget
 Flutter renders it as part of your UI.
 
 FileSystemException: writeFrom failed, path = 'C:\Users\HP\AppData\Local\Temp\flutter_tools.b174d984\flutter_tool.3ff4bb21\app.dill' (OS Error: There is not enough space on the disk.
+
+
+Multiple build operations failed.
+    Could not create task ':google_mobile_ads:generateDebugUnitTestConfig'.
+    Could not create task ':webview_flutter_android:generateDebugUnitTestConfig'.
+Could not create task ':google_mobile_ads:generateDebugUnitTestConfig'.
+this and base files have different roots: E:\AppDev\ai_img\build\google_mobile_ads and C:\Users\LENOVO\AppData\Local\Pub\Cache\hosted\pub.dev\google_mobile_ads-6.0.0\android.
