@@ -1,0 +1,11 @@
+Flutter NativeAd Widget
+  └──> Platform Channel
+        └──> NativeAdFactory (Kotlin)
+              └──> Inflate Layout XML
+              └──> Bind Data to Views
+              └──> Apply Styling
+              └──> setNativeAd()
+              └──> Return NativeAdView to Flutter
+Flutter renders it as part of your UI.
+
+FileSystemException: writeFrom failed, path = 'C:\Users\HP\AppData\Local\Temp\flutter_tools.b174d984\flutter_tool.3ff4bb21\app.dill' (OS Error: There is not enough space on the disk.

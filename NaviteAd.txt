@@ -1,4 +1,4 @@
-getOnlineIds()
+AdsSplashUtils().getOnlineIds()
 
 
 Firebase Remote Config 
